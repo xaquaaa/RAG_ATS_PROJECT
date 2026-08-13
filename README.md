@@ -31,7 +31,7 @@ python scripts/generate_synthetic_resumes.py --count 100
 pytest
 
 # Start the API
-uvicorn src.api.main:app --reload
+uvicorn src.api.main:app --reload --port 8000
 
 # In another terminal, start the UI
 streamlit run streamlit_app/app.py

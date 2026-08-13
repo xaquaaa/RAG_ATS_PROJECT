@@ -10,8 +10,15 @@ from src.indexing.tier2_index import InMemoryTier2Store
 def test_tier2_returns_full_candidate_context():
     tier2 = InMemoryTier2Store()
 
-    resume_a = " ".join(["Python developer with FastAPI experience."] * 30 + ["Led a team of five engineers at a fintech startup."])
-    resume_b = " ".join(["Java developer with Spring Boot experience."] * 30)
+    # Expanded to 250+ words to ensure it breaks across multiple chunks 
+    # even when CHUNK_SIZE_TOKENS is set to a large value like 220.
+    resume_a = " ".join(
+        ["Python developer with heavy FastAPI experience backend systems development engineering."] * 45 
+        + ["Led a team of five engineers at a fintech startup tracking metrics and shipping architecture."]
+    )
+    resume_b = " ".join(
+        ["Java developer with heavy Spring Boot experience enterprise microservices engineering scale."] * 45
+    )
 
     tier2.add_chunks(chunk_resume("candidate_a", resume_a))
     tier2.add_chunks(chunk_resume("candidate_b", resume_b))
