@@ -1,0 +1,17 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic>=2.10.0
+python-dotenv==1.0.1
+sentence-transformers==3.1.1
+groq==0.11.0
+pypdf==4.3.1
+streamlit==1.38.0
+requests==2.32.3
+numpy>=2.0.0
+
+# Optional — enable once you wire the Supabase-backed stores in src/db/
+# supabase==2.7.4
+# psycopg2-binary==2.9.9
+
+# Dev / tests
+pytest==8.3.3
