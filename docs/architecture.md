@@ -55,6 +55,42 @@ prompt instruction.
   LLM, with a system prompt that requires citing evidence or returning
   UNKNOWN. See `src/generation/generator.py`.
 
+## Persistence
+
+Two interchangeable store implementations exist, both matching the same
+interface (`upsert`/`score_all`/`get`/`all_ids` for Tier 1;
+`add_chunks`/`chunks_for_candidate` for Tier 2):
+
+- `InMemoryTier1Store` / `InMemoryTier2Store` — in-process, resets on
+  restart. Used when `USE_SUPABASE=false` (default). Fine for local dev.
+- `SupabaseTier1Store` / `SupabaseTier2Store` — persistent, backed by
+  Postgres + pgvector on Supabase's free tier. Used when `USE_SUPABASE=true`.
+
+### Why direct `psycopg2`, not `supabase-py`
+
+`supabase-py`'s query builder is a REST wrapper and doesn't expose
+`ORDER BY embedding <=> %s` (pgvector's cosine-distance operator) without
+first writing a Postgres RPC function. Going direct via `psycopg2` +
+`pgvector.psycopg2.register_vector` keeps the similarity query as plain,
+readable, debuggable SQL instead of hiding it behind an RPC call.
+
+### Why no ANN index
+
+Tier 1's `score_all()` is deliberately exhaustive — that's the Coverage fix.
+Approximate-nearest-neighbor indexes (ivfflat/hnsw) are built to skip most
+rows for speed, which is exactly what Coverage is designed to prevent unless
+you tune `probes` very aggressively. At hundreds of candidates, brute-force
+cosine distance over every row is fast enough. Revisit only if the candidate
+count grows into the thousands.
+
+### Connection pooling
+
+Use Supabase's **connection pooler** URI (port 6543, "Transaction" mode) for
+`SUPABASE_DB_URL`, not the direct connection (port 5432). Free-tier direct
+connections are capped low, and a Render-hosted API reconnecting frequently
+can exhaust that cap. Find the pooler URI under Project Settings → Database
+→ Connection pooling.
+
 ## Data flow
 
 ```

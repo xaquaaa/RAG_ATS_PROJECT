@@ -10,8 +10,8 @@ requests==2.32.3
 numpy>=2.0.0
 
 # Optional — enable once you wire the Supabase-backed stores in src/db/
-# supabase==2.7.4
-# psycopg2-binary==2.9.9
-
+supabase==2.7.4
+psycopg2-binary
+pgvector==0.3.5
 # Dev / tests
 pytest==8.3.3

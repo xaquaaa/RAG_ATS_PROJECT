@@ -8,17 +8,28 @@ src/db/ before deploying if you need persistence across restarts.
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from src.config import settings
 from src.ingestion.parser import load_all_resumes
 from src.ingestion.chunker import chunk_resume
-from src.indexing.tier1_index import InMemoryTier1Store
-from src.indexing.tier2_index import InMemoryTier2Store
 from src.retrieval.pipeline import retrieve_candidates
 from src.generation.generator import answer_question_for_candidate
 
 app = FastAPI(title="Smarter ATS — RAG Resume Screening")
 
-tier1 = InMemoryTier1Store()
-tier2 = InMemoryTier2Store()
+# Store selection: USE_SUPABASE=true in .env switches to persistent storage.
+# Both implementations share the same interface (upsert/score_all/get/all_ids
+# for tier1; add_chunks/chunks_for_candidate for tier2) — nothing else here
+# needs to change when you switch.
+if settings.use_supabase:
+    from src.db.tier1_supabase import SupabaseTier1Store
+    from src.db.tier2_supabase import SupabaseTier2Store
+    tier1 = SupabaseTier1Store()
+    tier2 = SupabaseTier2Store()
+else:
+    from src.indexing.tier1_index import InMemoryTier1Store
+    from src.indexing.tier2_index import InMemoryTier2Store
+    tier1 = InMemoryTier1Store()
+    tier2 = InMemoryTier2Store()
 
 
 class ScreenRequest(BaseModel):

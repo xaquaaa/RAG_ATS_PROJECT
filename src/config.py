@@ -25,6 +25,7 @@ class Settings:
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_key: str = os.getenv("SUPABASE_KEY", "")
     supabase_db_url: str = os.getenv("SUPABASE_DB_URL", "")  # postgres connection string
+    use_supabase: bool = os.getenv("USE_SUPABASE", "false").lower() == "true"
 
     # Coverage: how many candidates pass 1 (cheap, exhaustive) shortlists for pass 2 (reranker).
     shortlist_size: int = int(os.getenv("SHORTLIST_SIZE", "25"))
