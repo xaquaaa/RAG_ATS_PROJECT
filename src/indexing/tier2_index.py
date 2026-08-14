@@ -22,8 +22,10 @@ Supabase/pgvector schema:
 from dataclasses import dataclass
 import numpy as np
 
+from src.config import settings
 from src.indexing.embeddings import embed_texts, embed_text, cosine_sim
 from src.ingestion.chunker import Chunk
+from src.retrieval.rrf import reciprocal_rank_fusion
 
 
 @dataclass
@@ -54,22 +56,41 @@ class InMemoryTier2Store:
 
     def chunks_for_candidate(self, candidate_id: str, query: str, top_k: int | None = None) -> list[ScoredChunk]:
         """
-        This is the anti-fragmentation call: filter by candidate_id FIRST,
-        then rank within that candidate's own chunks. top_k=None returns
-        every chunk for the candidate — use that when you need the full
-        picture (e.g. for the evidence-gating step in generation.py).
+        Anti-fragmentation call: filter by candidate_id FIRST, then rank
+        within that candidate's own chunks. Ranking is hybrid (vector +
+        substring keyword match) via RRF, mirroring SupabaseTier2Store's SQL
+        version, so behavior is consistent whether USE_SUPABASE is on or off.
+        top_k=None returns every chunk for the candidate — use that when you
+        need the full picture (as generator.py does for the evidence gate).
         """
         q_vec = embed_text(query)
+        query_terms = [t for t in query.lower().split() if len(t) >= 3]
         candidate_chunks = [c for c in self._chunks if c["candidate_id"] == candidate_id]
+
+        cosine_by_id = {c["chunk_id"]: cosine_sim(q_vec, c["embedding"]) for c in candidate_chunks}
+        keyword_hits_by_id = {
+            c["chunk_id"]: sum(1 for t in query_terms if t in c["text"].lower()) for c in candidate_chunks
+        }
+
+        vector_rank_ids = sorted(cosine_by_id, key=lambda cid: cosine_by_id[cid], reverse=True)
+        keyword_rank_ids = sorted(
+            (cid for cid, hits in keyword_hits_by_id.items() if hits > 0),
+            key=lambda cid: keyword_hits_by_id[cid],
+            reverse=True,
+        )
+        fused = reciprocal_rank_fusion([vector_rank_ids, keyword_rank_ids], k=settings.rrf_k)
+
+        by_id = {c["chunk_id"]: c for c in candidate_chunks}
+        ranked_ids = sorted(fused, key=lambda cid: fused[cid], reverse=True)
+
         scored = [
             ScoredChunk(
-                chunk_id=c["chunk_id"],
-                candidate_id=c["candidate_id"],
-                section_hint=c["section_hint"],
-                text=c["text"],
-                score=cosine_sim(q_vec, c["embedding"]),
+                chunk_id=cid,
+                candidate_id=by_id[cid]["candidate_id"],
+                section_hint=by_id[cid]["section_hint"],
+                text=by_id[cid]["text"],
+                score=fused[cid],
             )
-            for c in candidate_chunks
+            for cid in ranked_ids
         ]
-        scored.sort(key=lambda s: s.score, reverse=True)
         return scored[:top_k] if top_k else scored

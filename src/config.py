@@ -33,6 +33,11 @@ class Settings:
     # Unknowns: cosine similarity floor below which we never call the LLM for that criterion.
     evidence_confidence_threshold: float = float(os.getenv("EVIDENCE_THRESHOLD", "0.45"))
 
+    # Hybrid search: Reciprocal Rank Fusion constant. 60 is the standard
+    # default from the original RRF paper — high enough that a single
+    # method's rank-1 result doesn't completely dominate the fused score.
+    rrf_k: int = int(os.getenv("RRF_K", "60"))
+
     # Chunking
     chunk_size_tokens: int = int(os.getenv("CHUNK_SIZE_TOKENS", "220"))
     chunk_overlap_tokens: int = int(os.getenv("CHUNK_OVERLAP_TOKENS", "40"))
