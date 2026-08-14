@@ -68,19 +68,57 @@ def screen(req: ScreenRequest):
     if not tier1.all_ids():
         raise HTTPException(400, "No candidates indexed yet — call /ingest first")
 
+    # Already sorted by rerank_score descending in retrieve_candidates().
     candidates = retrieve_candidates(req.query, tier1, tier2, shortlist_size=req.shortlist_size)
+    total = len(candidates)
 
     results = []
-    for candidate in candidates:
+    for rank, candidate in enumerate(candidates, start=1):
         answers = {q: answer_question_for_candidate(q, candidate) for q in req.questions}
+
+        # User-facing signal: relative position in THIS shortlist, not a raw
+        # logit. "Top 12%" is meaningful to a non-technical reviewer; a raw
+        # cross-encoder score (which can be negative or >1) is not.
+        match_percentile = round((rank / total) * 100) if total else None
+
         results.append({
             "candidate_id": candidate.candidate_id,
-            "tier1_score": round(candidate.tier1_score, 3),
-            "rerank_score": round(candidate.rerank_score, 3) if candidate.rerank_score is not None else None,
-            "answers": answers,
+            "match_percentile": match_percentile,  # default-view field
+            "rank": rank,
+            "answers": {
+                q: {
+                    "verdict": a.get("verdict"),
+                    "evidence": a.get("evidence"),
+                    "confidence_label": _confidence_label(a.get("verdict"), a.get("top_score")),
+                    "raw": a,  # full technical payload, shown only behind the UI's "show details" toggle
+                }
+                for q, a in answers.items()
+            },
+            "technical": {
+                "tier1_score": round(candidate.tier1_score, 3),
+                "rerank_score_raw": round(candidate.rerank_score, 3) if candidate.rerank_score is not None else None,
+            },
         })
 
     return {"query": req.query, "results": results}
+
+
+def _confidence_label(verdict: str | None, top_score: float | None) -> str | None:
+    """
+    Buckets retrieval confidence for display. Only meaningful for YES/NO
+    verdicts — anything that reached the LLM already cleared
+    EVIDENCE_THRESHOLD (the Unknowns gate), so this only differentiates
+    strength ABOVE that floor. UNKNOWN verdicts show no confidence label —
+    there's no evidence to rate.
+    """
+    if verdict == "UNKNOWN" or top_score is None:
+        return None
+    margin = top_score - settings.evidence_confidence_threshold
+    if margin >= 0.20:
+        return "High"
+    elif margin >= 0.05:
+        return "Medium"
+    return "Low"
 
 
 @app.get("/health")

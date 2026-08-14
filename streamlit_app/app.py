@@ -26,6 +26,7 @@ st.header("2. Screen candidates")
 query = st.text_area("Search query (candidate-level fit)", "5+ years backend experience with distributed systems")
 questions_raw = st.text_area("Screening questions (one per line)", "Has AWS certification?\nHas led a team?")
 shortlist_size = st.slider("Shortlist size (reranker pass)", 5, 50, 25)
+show_details = st.checkbox("Show technical details (raw scores)", value=False)
 
 if st.button("Run screening"):
     questions = [q.strip() for q in questions_raw.splitlines() if q.strip()]
@@ -38,12 +39,23 @@ if st.button("Run screening"):
     else:
         data = resp.json()
         for result in data["results"]:
-            with st.expander(f"{result['candidate_id']}  —  rerank score: {result['rerank_score']}"):
-                st.write(f"Tier-1 score: {result['tier1_score']}")
+            header = f"{result['candidate_id']}  —  Top {result['match_percentile']}% match"
+            with st.expander(header):
+                if show_details:
+                    t = result["technical"]
+                    st.caption(f"Tier-1 similarity: {t['tier1_score']}  |  Raw rerank score: {t['rerank_score_raw']}  |  Rank: {result['rank']}")
+
                 for question, answer in result["answers"].items():
                     verdict = answer.get("verdict", "UNKNOWN")
                     color = {"YES": "green", "NO": "red", "UNKNOWN": "orange"}.get(verdict, "gray")
-                    st.markdown(f"**{question}** — :{color}[{verdict}]")
+                    label = answer.get("confidence_label")
+                    suffix = f"  ({label} confidence)" if label else ""
+                    st.markdown(f"**{question}** — :{color}[{verdict}]{suffix}")
+
                     if answer.get("evidence"):
                         st.caption(f"Evidence: {answer['evidence']}")
-                    st.caption(f"Retrieval confidence: {answer.get('top_score')}")
+                    elif verdict == "UNKNOWN":
+                        st.caption("No supporting evidence found in this resume.")
+
+                    if show_details:
+                        st.caption(f"Raw retrieval score: {answer['raw'].get('top_score')}")
