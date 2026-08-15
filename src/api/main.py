@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from src.config import settings
 from src.ingestion.parser import load_all_resumes
 from src.ingestion.chunker import chunk_resume
-from src.retrieval.pipeline import retrieve_candidates
+from src.retrieval.pipeline import retrieve_candidates, get_direct_candidate_evidence
 from src.generation.generator import answer_question_for_candidate
 
 app = FastAPI(title="Smarter ATS — RAG Resume Screening")
@@ -40,6 +40,11 @@ class ScreenRequest(BaseModel):
 
 class IngestRequest(BaseModel):
     resume_directory: str = "data/resumes"
+
+
+class ScreenCandidateRequest(BaseModel):
+    candidate_id: str
+    questions: list[str]
 
 
 @app.post("/ingest")
@@ -100,7 +105,20 @@ def screen(req: ScreenRequest):
             },
         })
 
-    return {"query": req.query, "results": results}
+    total_indexed = len(tier1.all_ids())
+    return {
+        "query": req.query,
+        "results": results,
+        "coverage": {
+            "total_candidates_indexed": total_indexed,
+            "shown_in_detail": total,
+            # Candidates that exist but were never scored past the shortlist
+            # cutoff for THIS query — not wrong, just not evaluated here.
+            # Surfaced so the UI can point the user at /screen-candidate
+            # instead of silently under-representing the candidate pool.
+            "not_evaluated_in_detail": max(total_indexed - total, 0),
+        },
+    }
 
 
 def _confidence_label(verdict: str | None, top_score: float | None) -> str | None:
@@ -121,6 +139,61 @@ def _confidence_label(verdict: str | None, top_score: float | None) -> str | Non
     return "Low"
 
 
+@app.post("/screen-candidate")
+def screen_candidate(req: ScreenCandidateRequest):
+    """
+    Direct-candidate path: checks a NAMED candidate against a set of
+    questions, bypassing Tier 1 shortlisting entirely. Use this instead of
+    /screen when the caller already knows who they want to check (e.g. "does
+    this specific person meet these requirements") rather than searching
+    broadly. /screen's shortlist_size cutoff means a candidate can be
+    silently excluded from evaluation if they score low on a broad query —
+    this endpoint never has that failure mode, since there's no scoring or
+    shortlist step at all; every one of the candidate's chunks is available
+    to the evidence gate for every question.
+
+    Response shape intentionally mirrors /screen's per-candidate answer
+    format (verdict/evidence/confidence_label/raw) so the UI can reuse the
+    same rendering code — but there's no match_percentile or rank, since
+    those only mean something relative to a ranked shortlist, which this
+    path doesn't produce.
+    """
+    candidate = get_direct_candidate_evidence(req.candidate_id, tier1, tier2)
+    if candidate is None:
+        raise HTTPException(
+            404,
+            f"Candidate '{req.candidate_id}' not found — check the ID or call /ingest first",
+        )
+
+    answers = {q: answer_question_for_candidate(q, candidate) for q in req.questions}
+
+    return {
+        "candidate_id": req.candidate_id,
+        "answers": {
+            q: {
+                "verdict": a.get("verdict"),
+                "evidence": a.get("evidence"),
+                "confidence_label": _confidence_label(a.get("verdict"), a.get("top_score")),
+                "raw": a,
+            }
+            for q, a in answers.items()
+        },
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "candidates_indexed": len(tier1.all_ids())}
+
+
+@app.get("/candidates")
+def list_candidates():
+    """
+    Full candidate ID list, for populating a lookup picker in the UI so
+    users aren't required to already know a raw candidate_id to use
+    /screen-candidate. NOTE: this scaffold's synthetic dataset uses IDs like
+    'candidate_46' as a stand-in for a name — a real deployment would want
+    this endpoint to return actual candidate names, not just IDs, since no
+    real HR user thinks in terms of database row identifiers.
+    """
+    return {"candidate_ids": sorted(tier1.all_ids())}

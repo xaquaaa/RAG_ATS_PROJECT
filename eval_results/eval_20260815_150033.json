@@ -1,0 +1,41 @@
+{
+  "summary": {
+    "total": 3,
+    "accuracy": 1.0,
+    "hallucination_rate": 0.0,
+    "hallucinations": 0,
+    "over_cautious": 0,
+    "wrong_verdict": 0,
+    "not_retrieved": 0,
+    "recovered_via_direct": 3
+  },
+  "records": [
+    {
+      "query": "Backend Engineer with Java experience",
+      "candidate_id": "candidate_46",
+      "question": "Does this candidate have experience using Java?",
+      "expected": "NO",
+      "actual": "NO",
+      "recovered_via_direct": true,
+      "result": "correct (recovered)"
+    },
+    {
+      "query": "Backend Engineer with cloud certifications",
+      "candidate_id": "candidate_46",
+      "question": "Does the candidate hold an active AWS certification?",
+      "expected": "UNKNOWN",
+      "actual": "UNKNOWN",
+      "recovered_via_direct": true,
+      "result": "correct (recovered)"
+    },
+    {
+      "query": "DevOps Engineer with React experience",
+      "candidate_id": "candidate_48",
+      "question": "Does this candidate have experience using React?",
+      "expected": "NO",
+      "actual": "NO",
+      "recovered_via_direct": true,
+      "result": "correct (recovered)"
+    }
+  ]
+}

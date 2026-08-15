@@ -1,0 +1,173 @@
+{
+  "summary": {
+    "total": 20,
+    "accuracy": 0.85,
+    "hallucination_rate": 0.0,
+    "hallucinations": 0,
+    "over_cautious": 0,
+    "wrong_verdict": 0,
+    "not_retrieved": 3
+  },
+  "records": [
+    {
+      "query": "ML Engineer with relevant professional experience",
+      "candidate_id": "candidate_53",
+      "question": "Does this candidate have experience as a ML Engineer?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Data Analyst with a M.Sc Data Science degree",
+      "candidate_id": "candidate_74",
+      "question": "Does the candidate hold a M.Sc Data Science degree?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "DevOps Engineer with Go experience",
+      "candidate_id": "candidate_66",
+      "question": "Does this candidate have experience using Go?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Backend Engineer with AWS experience",
+      "candidate_id": "candidate_16",
+      "question": "Does this candidate have experience using AWS?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Senior ML Engineer with at least 7 years of experience",
+      "candidate_id": "candidate_53",
+      "question": "Does the candidate have at least 7 years of professional experience?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Backend Engineer with Java experience",
+      "candidate_id": "candidate_46",
+      "question": "Does this candidate have experience using Java?",
+      "expected": "NO",
+      "actual": null,
+      "result": "not_retrieved"
+    },
+    {
+      "query": "Backend Engineer with experience at Initech",
+      "candidate_id": "candidate_16",
+      "question": "Does the candidate have professional experience at Initech?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Backend Engineer with cloud certifications",
+      "candidate_id": "candidate_46",
+      "question": "Does the candidate hold an active AWS certification?",
+      "expected": "UNKNOWN",
+      "actual": null,
+      "result": "not_retrieved"
+    },
+    {
+      "query": "ML Engineer with Terraform experience",
+      "candidate_id": "candidate_53",
+      "question": "Does this candidate have experience using Terraform?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Data Analyst with a B.Tech Computer Science degree",
+      "candidate_id": "candidate_10",
+      "question": "Does the candidate hold a B.Tech Computer Science degree?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "DevOps Engineer with relevant professional experience",
+      "candidate_id": "candidate_66",
+      "question": "Does this candidate have experience as a DevOps Engineer?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "DevOps Engineer with React experience",
+      "candidate_id": "candidate_48",
+      "question": "Does this candidate have experience using React?",
+      "expected": "NO",
+      "actual": null,
+      "result": "not_retrieved"
+    },
+    {
+      "query": "Data Analyst with a B.Sc Information Technology degree",
+      "candidate_id": "candidate_42",
+      "question": "Does the candidate hold a B.Sc Information Technology degree?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "ML Engineer with Kubernetes experience",
+      "candidate_id": "candidate_45",
+      "question": "Does this candidate have experience using Kubernetes?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Data Analyst with relevant professional experience",
+      "candidate_id": "candidate_10",
+      "question": "Does this candidate have experience as a Data Analyst?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "DevOps Engineer with AWS experience",
+      "candidate_id": "candidate_66",
+      "question": "Does this candidate have experience using AWS?",
+      "expected": "UNKNOWN",
+      "actual": "UNKNOWN",
+      "result": "correct"
+    },
+    {
+      "query": "Data Analyst with cloud certifications",
+      "candidate_id": "candidate_42",
+      "question": "Does the candidate hold an active AWS certification?",
+      "expected": "UNKNOWN",
+      "actual": "UNKNOWN",
+      "result": "correct"
+    },
+    {
+      "query": "Backend Engineer with a M.Sc Data Science degree",
+      "candidate_id": "candidate_46",
+      "question": "Does the candidate hold a M.Sc Data Science degree?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    },
+    {
+      "query": "Data Analyst with AWS experience",
+      "candidate_id": "candidate_42",
+      "question": "Does this candidate have experience using AWS?",
+      "expected": "UNKNOWN",
+      "actual": "UNKNOWN",
+      "result": "correct"
+    },
+    {
+      "query": "ML Engineer with experience at Initech",
+      "candidate_id": "candidate_53",
+      "question": "Does the candidate have professional experience at Initech?",
+      "expected": "YES",
+      "actual": "YES",
+      "result": "correct"
+    }
+  ]
+}

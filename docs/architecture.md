@@ -91,6 +91,65 @@ connections are capped low, and a Render-hosted API reconnecting frequently
 can exhaust that cap. Find the pooler URI under Project Settings → Database
 → Connection pooling.
 
+## Evaluation
+
+`scripts/run_evaluation.py` scores the live system against a ground-truth
+set you define — see `data/eval/ground_truth.json`. This is a custom
+harness, not Ragas/TruLens: it grades against the project's own
+deterministic evidence gate rather than using an LLM-as-judge, which avoids
+both the free-tier Groq rate-limit exposure an LLM-judge framework would
+add, and the awkwardness of grading an anti-hallucination system with
+another LLM that can itself hallucinate a score.
+
+The metric that matters most here isn't accuracy — it's the confusion
+breakdown, specifically **hallucination rate** (expected UNKNOWN, system
+answered anyway). That's the one failure mode the evidence gate exists to
+prevent; a system that's very accurate on clear-cut cases but hallucinates
+on ambiguous ones is worse for hiring than one with lower raw accuracy and
+zero hallucinations.
+
+```bash
+# 1. Fill data/eval/ground_truth.json with real (query, candidate_id,
+#    question, expected_verdict) cases — expected_verdict must come from
+#    actually reading the candidate's resume, not guessing.
+# 2. Make sure the API is running and candidates are ingested.
+python scripts/run_evaluation.py
+```
+
+## Coverage gap between scoring and generation — and the direct-candidate fix
+
+Tier 1's `score_all()` is exhaustive at the *scoring* stage, but `retrieve_candidates()`
+only carries the top `shortlist_size` candidates into reranking and the
+evidence gate. A candidate who scores low against a broad search query never
+reaches generation at all — even for a question that has nothing to do with
+that query. This surfaced concretely in evaluation as "not_retrieved" cases:
+candidates silently missing from results, not answered incorrectly.
+
+**Fix:** `/screen-candidate` (`get_direct_candidate_evidence()` in
+`src/retrieval/pipeline.py`) bypasses Tier 1 shortlisting entirely for a
+named candidate — no scoring, no reranking, straight to the evidence gate
+against every chunk that candidate has. Use `/screen` for "who matches this
+requirement" and `/screen-candidate` for "does this specific person meet
+this requirement" — they're different tasks with different failure modes,
+not the same task with an optional parameter.
+
+**Closing the loop in the product, not just the backend:** a working
+endpoint isn't enough — an HR user who doesn't see someone they expected in
+`/screen` results has no way to know that person exists or that a direct
+check is possible. `/screen` now returns a `coverage` block
+(`total_candidates_indexed`, `shown_in_detail`, `not_evaluated_in_detail`),
+and the UI surfaces it as a banner pointing at the direct-candidate lookup
+when candidates were excluded. `/candidates` lists all ingested candidate
+IDs so the UI can offer a picker instead of requiring the user to already
+know a raw ID — a real deployment would want this to expose candidate
+*names*, not database IDs, which this scaffold doesn't attempt.
+
+`scripts/run_evaluation.py` now automatically retries any `/screen` miss
+through `/screen-candidate` before counting it as `not_retrieved`, and
+reports a `recovered_via_direct` count separately — this is what actually
+proves the fix closes the loop end-to-end, rather than just existing as an
+untested endpoint.
+
 ## Data flow
 
 ```

@@ -1,0 +1,23 @@
+[
+  
+  {
+    "query": "Backend Engineer with Java experience",
+    "candidate_id": "candidate_46",
+    "question": "Does this candidate have experience using Java?",
+    "expected_verdict": "NO"
+  },
+
+  {
+    "query": "Backend Engineer with cloud certifications",
+    "candidate_id": "candidate_46",
+    "question": "Does the candidate hold an active AWS certification?",
+    "expected_verdict": "UNKNOWN"
+  },
+
+  {
+    "query": "DevOps Engineer with React experience",
+    "candidate_id": "candidate_48",
+    "question": "Does this candidate have experience using React?",
+    "expected_verdict": "NO"
+  }
+]

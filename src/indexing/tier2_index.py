@@ -94,3 +94,26 @@ class InMemoryTier2Store:
             for cid in ranked_ids
         ]
         return scored[:top_k] if top_k else scored
+
+    def all_chunks_for_candidate(self, candidate_id: str) -> list[ScoredChunk]:
+        """
+        Used by the direct-candidate path (bypasses Tier 1 shortlisting
+        entirely — see src/retrieval/pipeline.py get_direct_candidate_evidence).
+        No query, no ranking: just every chunk this candidate has. Ranking
+        against each specific question happens downstream in
+        generator.answer_question_for_candidate, which re-scores per
+        question anyway — pre-ranking here would be wasted work and would
+        require a fake query, which is exactly the coupling this path exists
+        to avoid.
+        """
+        return [
+            ScoredChunk(
+                chunk_id=c["chunk_id"],
+                candidate_id=c["candidate_id"],
+                section_hint=c["section_hint"],
+                text=c["text"],
+                score=0.0,
+            )
+            for c in self._chunks
+            if c["candidate_id"] == candidate_id
+        ]

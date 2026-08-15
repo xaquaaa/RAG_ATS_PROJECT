@@ -95,3 +95,21 @@ class SupabaseTier2Store:
                     ScoredChunk(chunk_id=r[0], candidate_id=r[1], section_hint=r[2], text=r[3], score=float(r[4]))
                     for r in cur.fetchall()
                 ]
+
+    def all_chunks_for_candidate(self, candidate_id: str) -> list[ScoredChunk]:
+        """
+        Used by the direct-candidate path — bypasses Tier 1 shortlisting and
+        all ranking. See src/retrieval/pipeline.py get_direct_candidate_evidence
+        and InMemoryTier2Store.all_chunks_for_candidate for the rationale.
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "select chunk_id, candidate_id, section_hint, text "
+                    "from resume_chunks where candidate_id = %s",
+                    (candidate_id,),
+                )
+                return [
+                    ScoredChunk(chunk_id=r[0], candidate_id=r[1], section_hint=r[2], text=r[3], score=0.0)
+                    for r in cur.fetchall()
+                ]
