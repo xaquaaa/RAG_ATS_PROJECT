@@ -136,13 +136,25 @@ not the same task with an optional parameter.
 **Closing the loop in the product, not just the backend:** a working
 endpoint isn't enough — an HR user who doesn't see someone they expected in
 `/screen` results has no way to know that person exists or that a direct
-check is possible. `/screen` now returns a `coverage` block
+check is possible. `/screen` returns a `coverage` block
 (`total_candidates_indexed`, `shown_in_detail`, `not_evaluated_in_detail`),
-and the UI surfaces it as a banner pointing at the direct-candidate lookup
-when candidates were excluded. `/candidates` lists all ingested candidate
-IDs so the UI can offer a picker instead of requiring the user to already
-know a raw ID — a real deployment would want this to expose candidate
-*names*, not database IDs, which this scaffold doesn't attempt.
+and `/candidates` lists all ingested IDs so the UI can offer a picker
+instead of requiring the user to already know a raw ID — a real deployment
+would want this to expose candidate *names*, not database IDs, which this
+scaffold doesn't attempt.
+
+**Near-miss surfacing, not the full excluded list.** Showing every excluded
+candidate doesn't scale — at real candidate-pool sizes nobody reviews a
+list of 100+ names, so a raw exclusion count doesn't actually answer "did I
+miss anyone good." Instead, `compute_near_misses()` (pure logic,
+`src/retrieval/pipeline.py`, no embedding model needed to test it) flags
+only candidates whose Tier-1 score is within `NEAR_MISS_MARGIN` of the
+lowest shortlisted score — i.e. candidates who *narrowly* missed the
+cutoff, not everyone who missed it. Capped at `NEAR_MISS_MAX` so a dense
+cluster near the boundary doesn't flood the response. The list is sorted
+descending and scanning stops at the first candidate outside the margin,
+since scores are already sorted — a gap that exceeds the margin only grows
+from there.
 
 `scripts/run_evaluation.py` now automatically retries any `/screen` miss
 through `/screen-candidate` before counting it as `not_retrieved`, and

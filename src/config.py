@@ -38,6 +38,13 @@ class Settings:
     # method's rank-1 result doesn't completely dominate the fused score.
     rrf_k: int = int(os.getenv("RRF_K", "60"))
 
+    # Near-miss surfacing: a candidate just below the shortlist cutoff is
+    # flagged if their Tier-1 score is within this margin of the lowest
+    # shortlisted score. Capped at near_miss_max entries so a dense cluster
+    # near the cutoff doesn't flood the response.
+    near_miss_margin: float = float(os.getenv("NEAR_MISS_MARGIN", "0.05"))
+    near_miss_max: int = int(os.getenv("NEAR_MISS_MAX", "10"))
+
     # Chunking
     chunk_size_tokens: int = int(os.getenv("CHUNK_SIZE_TOKENS", "220"))
     chunk_overlap_tokens: int = int(os.getenv("CHUNK_OVERLAP_TOKENS", "40"))

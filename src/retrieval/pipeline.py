@@ -19,18 +19,62 @@ class CandidateEvidence:
     evidence_chunks: list[ScoredChunk]  # full-resume chunks for this candidate, ranked
 
 
+@dataclass
+class NearMiss:
+    candidate_id: str
+    tier1_score: float
+    # How close to the shortlist cutoff this candidate was — not an
+    # absolute quality signal, purely relative to who WAS included.
+    margin_below_cutoff: float
+
+
+@dataclass
+class RetrievalResult:
+    candidates: list[CandidateEvidence]  # the shortlist, evaluated in full
+    near_misses: list[NearMiss]          # excluded, but close enough to flag
+    total_candidates_scored: int         # size of the full candidate pool (Tier 1 pass-1 was exhaustive over this)
+
+
+def compute_near_misses(
+    all_scores: list[tuple[str, float]],
+    shortlist_size: int,
+    margin: float,
+    max_count: int,
+) -> list[NearMiss]:
+    """
+    Pure selection logic, split out from retrieve_candidates() so it's
+    testable without a live embedding model. all_scores must already be
+    sorted descending by score (as tier1.score_all() returns it).
+    """
+    shortlist = all_scores[:shortlist_size]
+    excluded = all_scores[shortlist_size:]
+    if not shortlist:
+        return []
+
+    cutoff_score = shortlist[-1][1]
+    near_misses: list[NearMiss] = []
+    for cid, score in excluded:
+        gap = cutoff_score - score
+        if gap <= margin:
+            near_misses.append(NearMiss(candidate_id=cid, tier1_score=score, margin_below_cutoff=round(gap, 4)))
+        else:
+            # Sorted descending, so the gap only grows from here — safe to stop.
+            break
+    return near_misses[:max_count]
+
+
 def retrieve_candidates(
     query: str,
     tier1: InMemoryTier1Store,
     tier2: InMemoryTier2Store,
     shortlist_size: int = settings.shortlist_size,
-) -> list[CandidateEvidence]:
+) -> RetrievalResult:
     # Pass 1 — Coverage fix: score EVERY candidate, cheaply. No candidate is
     # skipped at this stage; this is what "coverage" actually means.
     all_scores = tier1.score_all(query)  # [(candidate_id, score), ...] for ALL candidates
 
-    # Shortlist for the expensive step. Only pass-2 is bounded, not pass-1.
     shortlist = all_scores[:shortlist_size]
+    near_misses = compute_near_misses(all_scores, shortlist_size, settings.near_miss_margin, settings.near_miss_max)
 
     # Pass 2 — rerank the shortlist with the cross-encoder for real relevance.
     summaries = [(cid, tier1.get(cid).summary_text) for cid, _ in shortlist if tier1.get(cid)]
@@ -51,7 +95,11 @@ def retrieve_candidates(
         )
 
     results.sort(key=lambda r: (r.rerank_score or 0.0), reverse=True)
-    return results
+    return RetrievalResult(
+        candidates=results,
+        near_misses=near_misses,
+        total_candidates_scored=len(all_scores),
+    )
 
 
 def get_direct_candidate_evidence(

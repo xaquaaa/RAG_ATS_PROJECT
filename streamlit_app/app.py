@@ -57,6 +57,8 @@ def _fetch_candidate_ids() -> list[str]:
 
 if "last_shown_ids" not in st.session_state:
     st.session_state["last_shown_ids"] = set()
+if "last_screen_data" not in st.session_state:
+    st.session_state["last_screen_data"] = None
 
 if st.button("Run screening"):
     questions = [q.strip() for q in questions_raw.splitlines() if q.strip()]
@@ -68,26 +70,63 @@ if st.button("Run screening"):
         st.error(resp.text)
     else:
         data = resp.json()
+        # Stored in session_state (not rendered inline here) because the
+        # near-miss "check now" buttons below need to survive Streamlit's
+        # rerun when clicked — a button nested inside this `if` block would
+        # vanish on the next rerun since this block only runs on the
+        # ORIGINAL "Run screening" click, not on the near-miss button click.
+        st.session_state["last_screen_data"] = data
         st.session_state["last_shown_ids"] = {r["candidate_id"] for r in data["results"]}
 
-        coverage = data.get("coverage", {})
-        not_evaluated = coverage.get("not_evaluated_in_detail", 0)
-        if not_evaluated > 0:
-            st.info(
-                f"Showing detailed evaluation for {coverage['shown_in_detail']} of "
-                f"{coverage['total_candidates_indexed']} candidates. {not_evaluated} weren't "
-                f"in this shortlist for this search — if you're looking for someone specific, "
-                f"use **\"Check a specific candidate\"** below to check them directly regardless "
-                f"of how they ranked here."
-            )
+# Rendered from session_state, not nested in the button block above — see comment there.
+if st.session_state["last_screen_data"]:
+    data = st.session_state["last_screen_data"]
+    coverage = data.get("coverage", {})
 
-        for result in data["results"]:
-            header = f"{result['candidate_id']}  —  Top {result['match_percentile']}% match"
-            with st.expander(header):
-                if show_details:
-                    t = result["technical"]
-                    st.caption(f"Tier-1 similarity: {t['tier1_score']}  |  Raw rerank score: {t['rerank_score_raw']}  |  Rank: {result['rank']}")
-                _render_answers(result["answers"], show_details)
+    not_evaluated = coverage.get("not_evaluated_in_detail", 0)
+    if not_evaluated > 0:
+        st.info(
+            f"Showing detailed evaluation for {coverage['shown_in_detail']} of "
+            f"{coverage['total_candidates_indexed']} candidates."
+        )
+
+    near_misses = coverage.get("near_misses", [])
+    for result in data["results"]:
+        header = f"{result['candidate_id']}  —  Top {result['match_percentile']}% match"
+        with st.expander(header):
+            if show_details:
+                t = result["technical"]
+                st.caption(f"Tier-1 similarity: {t['tier1_score']}  |  Raw rerank score: {t['rerank_score_raw']}  |  Rank: {result['rank']}")
+            _render_answers(result["answers"], show_details)
+    if near_misses:
+        st.warning(
+            f"{len(near_misses)} candidate(s) narrowly missed this search's shortlist — "
+            f"close enough to the cutoff to be worth checking directly:"
+        )
+        for nm in near_misses:
+            cid = nm["candidate_id"]
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**{cid}**  (score margin below cutoff: {nm['margin_below_cutoff']})")
+            with col2:
+                if st.button("Check now", key=f"nearmiss_{cid}"):
+                    nm_questions = [q.strip() for q in questions_raw.splitlines() if q.strip()]
+                    nm_resp = requests.post(
+                        f"{API_BASE_URL}/screen-candidate",
+                        json={"candidate_id": cid, "questions": nm_questions},
+                    )
+                    if nm_resp.status_code == 200:
+                        st.session_state[f"nearmiss_result_{cid}"] = nm_resp.json()
+                    else:
+                        st.error(nm_resp.text)
+
+            # Also persisted in session_state so the result stays visible
+            # across reruns triggered by OTHER buttons on the page.
+            if st.session_state.get(f"nearmiss_result_{cid}"):
+                with st.expander(f"Result for {cid}", expanded=True):
+                    _render_answers(st.session_state[f"nearmiss_result_{cid}"]["answers"], show_details)
+
+
 
 st.header("3. Check a specific candidate")
 st.caption(

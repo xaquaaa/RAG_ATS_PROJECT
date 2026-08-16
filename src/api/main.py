@@ -73,8 +73,11 @@ def screen(req: ScreenRequest):
     if not tier1.all_ids():
         raise HTTPException(400, "No candidates indexed yet — call /ingest first")
 
-    # Already sorted by rerank_score descending in retrieve_candidates().
-    candidates = retrieve_candidates(req.query, tier1, tier2, shortlist_size=req.shortlist_size)
+    # retrieve_candidates() now returns candidates + near-misses together —
+    # near_misses are excluded candidates whose Tier-1 score was close to
+    # the shortlist cutoff, not everyone who was excluded.
+    retrieval = retrieve_candidates(req.query, tier1, tier2, shortlist_size=req.shortlist_size)
+    candidates = retrieval.candidates
     total = len(candidates)
 
     results = []
@@ -114,9 +117,15 @@ def screen(req: ScreenRequest):
             "shown_in_detail": total,
             # Candidates that exist but were never scored past the shortlist
             # cutoff for THIS query — not wrong, just not evaluated here.
-            # Surfaced so the UI can point the user at /screen-candidate
-            # instead of silently under-representing the candidate pool.
             "not_evaluated_in_detail": max(total_indexed - total, 0),
+            # Near-misses only (not the full excluded list): candidates
+            # whose Tier-1 score was within NEAR_MISS_MARGIN of the cutoff.
+            # Capped at NEAR_MISS_MAX so a dense cluster near the boundary
+            # doesn't flood the response — see docs/architecture.md.
+            "near_misses": [
+                {"candidate_id": nm.candidate_id, "margin_below_cutoff": nm.margin_below_cutoff}
+                for nm in retrieval.near_misses
+            ],
         },
     }
 
