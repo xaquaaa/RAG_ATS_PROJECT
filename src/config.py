@@ -49,5 +49,13 @@ class Settings:
     chunk_size_tokens: int = int(os.getenv("CHUNK_SIZE_TOKENS", "220"))
     chunk_overlap_tokens: int = int(os.getenv("CHUNK_OVERLAP_TOKENS", "40"))
 
+    # Confidence label margins (above EVIDENCE_THRESHOLD) for the UI's
+    # High/Medium/Low display — see _confidence_label() in src/api/main.py.
+    # These are GUESSES, not calibrated — run
+    # scripts/analyze_confidence_scores.py against your real data and set
+    # these from its suggested output rather than trusting the defaults.
+    confidence_high_margin: float = float(os.getenv("CONFIDENCE_HIGH_MARGIN", "0.20"))
+    confidence_medium_margin: float = float(os.getenv("CONFIDENCE_MEDIUM_MARGIN", "0.05"))
+
 
 settings = Settings()

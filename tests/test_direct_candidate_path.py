@@ -37,8 +37,8 @@ def test_candidate_excluded_from_shortlist_but_reachable_directly():
 
     # Confirm the gap actually exists first: a small shortlist for an
     # unrelated broad query should NOT include candidate_java.
-    ranked = retrieve_candidates("Python data science pandas", tier1, tier2, shortlist_size=5)
-    ranked_ids = {c.candidate_id for c in ranked}
+    result = retrieve_candidates("Python data science pandas", tier1, tier2, shortlist_size=5)
+    ranked_ids = {c.candidate_id for c in result.candidates}
     assert "candidate_java" not in ranked_ids, (
         "Test setup assumption failed — candidate_java unexpectedly made the shortlist"
     )

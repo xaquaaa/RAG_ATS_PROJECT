@@ -12,7 +12,7 @@ from src.config import settings
 from src.ingestion.parser import load_all_resumes
 from src.ingestion.chunker import chunk_resume
 from src.retrieval.pipeline import retrieve_candidates, get_direct_candidate_evidence
-from src.generation.generator import answer_question_for_candidate
+from src.generation.generator import answer_question_for_candidate, evaluate_evidence
 
 app = FastAPI(title="Smarter ATS — RAG Resume Screening")
 
@@ -43,6 +43,11 @@ class IngestRequest(BaseModel):
 
 
 class ScreenCandidateRequest(BaseModel):
+    candidate_id: str
+    questions: list[str]
+
+
+class ScorePreviewRequest(BaseModel):
     candidate_id: str
     questions: list[str]
 
@@ -141,9 +146,9 @@ def _confidence_label(verdict: str | None, top_score: float | None) -> str | Non
     if verdict == "UNKNOWN" or top_score is None:
         return None
     margin = top_score - settings.evidence_confidence_threshold
-    if margin >= 0.20:
+    if margin >= settings.confidence_high_margin:
         return "High"
-    elif margin >= 0.05:
+    elif margin >= settings.confidence_medium_margin:
         return "Medium"
     return "Low"
 
@@ -206,3 +211,35 @@ def list_candidates():
     real HR user thinks in terms of database row identifiers.
     """
     return {"candidate_ids": sorted(tier1.all_ids())}
+
+
+@app.post("/score-preview")
+def score_preview(req: ScorePreviewRequest):
+    """
+    Runs the evidence gate (evaluate_evidence) WITHOUT calling the LLM —
+    zero Groq token cost. Returns raw top_score and matched_via for each
+    question against a named candidate, bypassing Tier 1 shortlisting the
+    same way /screen-candidate does.
+
+    Exists for calibrating EVIDENCE_THRESHOLD and the confidence-label
+    margins (_confidence_label) against real score distributions instead of
+    guessed constants — see scripts/analyze_confidence_scores.py, which
+    sweeps this endpoint across many (candidate, question) pairs for free.
+    """
+    candidate = get_direct_candidate_evidence(req.candidate_id, tier1, tier2)
+    if candidate is None:
+        raise HTTPException(
+            404,
+            f"Candidate '{req.candidate_id}' not found — check the ID or call /ingest first",
+        )
+
+    scores = {}
+    for q in req.questions:
+        gate = evaluate_evidence(q, candidate)
+        scores[q] = {
+            "top_score": round(gate["top_score"], 4),
+            "passes_gate": gate["passes"],
+            "matched_via": gate["matched_via"],
+        }
+
+    return {"candidate_id": req.candidate_id, "scores": scores}

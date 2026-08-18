@@ -55,6 +55,23 @@ prompt instruction.
   LLM, with a system prompt that requires citing evidence or returning
   UNKNOWN. See `src/generation/generator.py`.
 
+**Scoring signal (revised):** the semantic half of the evidence gate
+originally used cosine similarity between independently-embedded question
+and chunk vectors. Calibration against 499 real ground-truth cases showed
+that signal doesn't separate well — the lowest score among real matches
+(0.207) was *below* the highest score among genuine no-evidence cases
+(0.471), meaning no threshold on it could reliably distinguish the two.
+Swapped to a cross-encoder (`ms-marco-MiniLM-L-6-v2`, the same model already
+used for Tier-1 reranking — no new download) that scores `(question, chunk)`
+jointly rather than comparing two separately-computed vectors, since
+cross-encoders are generally far more discriminative for this kind of
+relevance judgment. Output is passed through a sigmoid (`generator.sigmoid`)
+purely to keep it in a familiar `(0, 1)` range for thresholds/UI — this is
+not a calibrated probability. **Re-run
+`scripts/analyze_confidence_scores.py` after this change** — the old
+`EVIDENCE_THRESHOLD`/confidence-margin values were tuned for cosine
+similarity and do not carry over to this new scale.
+
 ## Persistence
 
 Two interchangeable store implementations exist, both matching the same
