@@ -33,8 +33,13 @@ class Settings:
     # Coverage: how many candidates pass 1 (cheap, exhaustive) shortlists for pass 2 (reranker).
     shortlist_size: int = int(os.getenv("SHORTLIST_SIZE", "25"))
 
-    # Unknowns: cosine similarity floor below which we never call the LLM for that criterion.
-    evidence_confidence_threshold: float = float(os.getenv("EVIDENCE_THRESHOLD", "0.45"))
+    # Unknowns: evidence floor (cross-encoder score, sigmoid-normalized)
+    # below which we never call the LLM for that criterion. 0.15 is the
+    # calibrated production value — see docs/architecture.md "Handling
+    # unknowns" for how this was derived; it intentionally sits above the
+    # observed no-evidence score ceiling, favoring safe UNKNOWNs over
+    # confident wrong answers.
+    evidence_confidence_threshold: float = float(os.getenv("EVIDENCE_THRESHOLD", "0.15"))
 
     # Hybrid search: Reciprocal Rank Fusion constant. 60 is the standard
     # default from the original RRF paper — high enough that a single
@@ -59,6 +64,13 @@ class Settings:
     # these from its suggested output rather than trusting the defaults.
     confidence_high_margin: float = float(os.getenv("CONFIDENCE_HIGH_MARGIN", "0.20"))
     confidence_medium_margin: float = float(os.getenv("CONFIDENCE_MEDIUM_MARGIN", "0.05"))
+
+    # Admin/demo-only endpoints (e.g. seeding synthetic data without shell
+    # access — see /admin/seed-synthetic-data in src/api/main.py). OFF by
+    # default. Never enable this on a deployment holding real candidate
+    # data — it's a convenience for a portfolio demo with synthetic data
+    # only, not an access-controlled feature.
+    admin_endpoints_enabled: bool = os.getenv("ADMIN_ENDPOINTS_ENABLED", "false").lower() == "true"
 
 
 settings = Settings()

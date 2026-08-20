@@ -52,6 +52,20 @@ class ScorePreviewRequest(BaseModel):
     questions: list[str]
 
 
+class SeedSyntheticDataRequest(BaseModel):
+    count: int = 100
+
+
+def _ingest_candidate(candidate_id: str, raw_text: str):
+    """Shared by /ingest (reads from disk) and /admin/seed-synthetic-data
+    (generates in-memory) — same indexing logic either way."""
+    # naive summary for the scaffold — replace with an LLM-generated
+    # summary for better Tier 1 recall once you're past the skeleton.
+    summary = raw_text[:1500]
+    tier1.upsert(candidate_id, summary)
+    tier2.add_chunks(chunk_resume(candidate_id, raw_text))
+
+
 @app.post("/ingest")
 def ingest(req: IngestRequest):
     """Loads resumes from disk, builds Tier 1 + Tier 2 indexes. Run once before querying."""
@@ -60,13 +74,41 @@ def ingest(req: IngestRequest):
         raise HTTPException(400, f"No resumes found in {req.resume_directory}")
 
     for candidate_id, raw_text in resumes.items():
-        # naive summary for the scaffold — replace with an LLM-generated
-        # summary for better Tier 1 recall once you're past the skeleton.
-        summary = raw_text[:1500]
-        tier1.upsert(candidate_id, summary)
-        tier2.add_chunks(chunk_resume(candidate_id, raw_text))
+        _ingest_candidate(candidate_id, raw_text)
 
     return {"ingested_candidates": len(resumes)}
+
+
+@app.post("/admin/seed-synthetic-data")
+def seed_synthetic_data(req: SeedSyntheticDataRequest):
+    """
+    Generates and ingests synthetic resumes ENTIRELY IN MEMORY — no files
+    written to disk at any point. Exists because Render's free tier has no
+    shell access (so you can't run generate_synthetic_resumes.py directly
+    on the deployed instance) AND its free-tier disk is ephemeral anyway
+    (any files written there vanish on the next redeploy/restart), so
+    "write resumes to disk, then /ingest from disk" was never going to be a
+    durable answer for a live deployment — only Supabase persistence
+    survives restarts, so this writes straight into that.
+
+    Gated by ADMIN_ENDPOINTS_ENABLED (default off). This is a demo
+    convenience for synthetic data only — never enable it on a deployment
+    holding real candidate data, since it's unauthenticated.
+    """
+    if not settings.admin_endpoints_enabled:
+        raise HTTPException(
+            403,
+            "Admin endpoints are disabled. Set ADMIN_ENDPOINTS_ENABLED=true "
+            "(demo/synthetic-data use only) to enable this.",
+        )
+
+    from scripts.generate_synthetic_resumes import build_resume
+
+    for i in range(req.count):
+        candidate_id = f"candidate_{i}"
+        _ingest_candidate(candidate_id, build_resume(i))
+
+    return {"seeded_candidates": req.count}
 
 
 @app.post("/screen")

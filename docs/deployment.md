@@ -35,19 +35,28 @@ Cloud. Both free tiers. Do the backend first — the frontend needs its URL.
 6. Deploy. Once live, confirm `https://<your-service>.onrender.com/health`
    responds — this also confirms Supabase connectivity, since `/health`
    queries the candidate count.
-7. **Ingest your dataset once** against the live URL:
+7. **Seed your dataset once** against the live URL — Render's free tier has
+   **no shell access**, and its free-tier disk is ephemeral anyway (wiped on
+   every redeploy/restart), so neither "commit resumes to git" nor "run the
+   generator via shell" is a durable answer. Use the in-memory admin
+   endpoint instead, which writes straight to Supabase without touching
+   disk at all:
    ```bash
-   curl -X POST https://<your-service>.onrender.com/ingest \
+   # Temporarily set ADMIN_ENDPOINTS_ENABLED=true in Render's environment
+   # variables first, redeploy, then:
+   curl -X POST https://<your-service>.onrender.com/admin/seed-synthetic-data \
      -H "Content-Type: application/json" \
-     -d '{"resume_directory": "data/resumes"}'
+     -d '{"count": 100}'
+   # Then set ADMIN_ENDPOINTS_ENABLED back to false (or remove it) and
+   # redeploy again — this endpoint is unauthenticated and only meant for
+   # one-off demo seeding with synthetic data, never left on.
    ```
-   This only works if `data/resumes/*.txt` is actually present in the
-   deployed repo — check your `.gitignore` isn't excluding them (the
-   default scaffold `.gitignore` DOES exclude
-   `data/resumes/*.txt` by default, on the assumption you'd regenerate
-   them — either commit your dataset deliberately, or run
-   `generate_synthetic_resumes.py` as a one-off Render shell command before
-   calling `/ingest`).
+   If you'd rather use your own real resume files instead of synthetic
+   ones, `/ingest` (reading `data/resumes/`) still works — just note it
+   requires those files to actually be present in the deployed repo, which
+   means committing them (removing the `data/resumes/*.txt` line from
+   `.gitignore`) since there's no way to get files onto a shell-less,
+   ephemeral-disk free instance any other way.
 
 ## 2. Frontend — Streamlit Community Cloud
 
