@@ -5,7 +5,7 @@ python-dotenv==1.0.1
 fastembed==0.8.0  # ONNX runtime, no PyTorch — swapped from sentence-transformers
                    # after Render's free 512MB tier ran out of memory with two
                    # PyTorch-backed models loaded simultaneously
-groq==0.11.0
+groq==1.6.0
 pypdf==4.3.1
 streamlit
 requests==2.32.3
