@@ -24,10 +24,14 @@ Cloud. Both free tiers. Do the backend first — the frontend needs its URL.
    `CONFIDENCE_HIGH_MARGIN`, `CONFIDENCE_MEDIUM_MARGIN`,
    `SHORTLIST_SIZE`, `CHUNK_SIZE_TOKENS`, `CHUNK_OVERLAP_TOKENS`. Never
    commit `.env` — set these in Render's dashboard only.
-5. **Instance type:** free tier is fine for a portfolio demo. Note: free
-   Render services spin down after ~15 min idle and cold-start on the next
-   request (30–50s). This is expected, not a bug — don't mistake a slow
-   first request after idle time for something broken.
+5. **Instance type:** free tier (512MB) works — but only because the
+   embedding and cross-encoder models run on `fastembed` (ONNX runtime), not
+   `sentence-transformers`/PyTorch. Two PyTorch-backed models plus PyTorch's
+   own baseline overhead exceeded 512MB in initial testing. If you've
+   modified `src/indexing/embeddings.py` or `src/retrieval/reranker.py` to
+   reintroduce a PyTorch-based model, expect to hit this again. Also note:
+   free Render services spin down after ~15 min idle and cold-start on the
+   next request (30–50s) — expected, not a bug.
 6. Deploy. Once live, confirm `https://<your-service>.onrender.com/health`
    responds — this also confirms Supabase connectivity, since `/health`
    queries the candidate count.

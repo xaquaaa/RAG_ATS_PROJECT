@@ -86,10 +86,10 @@ def evaluate_evidence(question: str, candidate: CandidateEvidence) -> dict:
 
     chunks = candidate.evidence_chunks
     reranker = get_reranker()
-    # Batched in one predict() call — far cheaper than scoring chunks one at
+    # Batched in one rerank() call — far cheaper than scoring chunks one at
     # a time, and this only ever runs against one candidate's chunk set
     # (small), never the whole candidate pool.
-    raw_scores = reranker.predict([(question, c.text) for c in chunks])
+    raw_scores = list(reranker.rerank(question, [c.text for c in chunks]))
 
     per_chunk = []
     for c, raw_score in zip(chunks, raw_scores):

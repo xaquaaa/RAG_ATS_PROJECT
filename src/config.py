@@ -14,8 +14,11 @@ class Settings:
     # Embeddings — local model, no API cost, no rate limit.
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
-    # Reranker — local cross-encoder, used only on the shortlist (Coverage fix, pass 2).
-    reranker_model: str = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    # Reranker — local cross-encoder (fastembed/ONNX), used on the shortlist
+    # (Coverage fix, pass 2) and as the evidence gate's semantic signal
+    # (generator.py). 'Xenova/...' is the ONNX export fastembed's registry
+    # uses — same underlying weights as cross-encoder/ms-marco-MiniLM-L-6-v2.
+    reranker_model: str = os.getenv("RERANKER_MODEL", "Xenova/ms-marco-MiniLM-L-6-v2")
 
     # LLM — used ONLY for the final gated-generation step, never for scoring.
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
